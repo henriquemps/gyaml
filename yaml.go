@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"os"
 	"reflect"
-	"strconv"
+	"regexp"
 	"strings"
 )
 
@@ -19,22 +19,67 @@ func Read(dataStruct any, path string) error {
 
 	defer file.Close()
 
+	var lines []string
 	scanner := bufio.NewScanner(file)
 
 	for scanner.Scan() {
-		if !strings.HasSuffix(scanner.Text(), ":") {
-
-			values := strings.Split(scanner.Text(), ":")
-
-			buildStruct(dataStruct, values[0], values[1])
-		}
+		lines = append(lines, strings.TrimSpace(scanner.Text()))
 	}
+
+	buildStruct(dataStruct, lines)
 
 	return nil
 }
 
+func buildStruct(dataStruct any, lines []string) {
+
+	valuesArray := make([]string, 0)
+
+	for index, line := range lines {
+		field, _, _ := strings.Cut(strings.TrimSpace(line), ":")
+		isOnlyField := strings.HasSuffix(line, ":")
+
+		if !isOnlyField {
+			regexpFieldValue := regexp.MustCompile(".*:.*")
+			regexpItemArray := regexp.MustCompile("(-(\\s|)[a-zA-Z]+)|(-(\\s|)[0-9]+)")
+			regexpItemDate := regexp.MustCompile("([0-9]{4,}-[0-9]{2,}-[0-9]{2,})")
+			regexpArray := regexp.MustCompile(`\[.*]`)
+
+			if regexpFieldValue.MatchString(line) || regexpItemDate.MatchString(line) {
+				_, value, _ := strings.Cut(line, ":")
+				setValueOnDataStruct(dataStruct, field, value)
+			}
+
+			if regexpItemArray.MatchString(line) {
+				nextLine := index + 1
+
+				line = strings.TrimSpace(strings.Replace(line, "-", "", -1))
+				valuesArray = append(valuesArray, line)
+				totalLines := len(lines)
+				totalValues := len(valuesArray)
+
+				if (nextLine < totalLines && !regexpItemArray.MatchString(lines[nextLine])) || nextLine == totalLines {
+					field = lines[totalLines-totalValues-1]
+					field = strings.Replace(field, ":", "", -1)
+
+					setValueOnDataStruct(dataStruct, field, valuesArray)
+				}
+			}
+
+			if regexpArray.MatchString(line) {
+				strReplaced := strings.Trim(line, "[]")
+				value := strings.Split(strReplaced, ",")
+
+				setValueOnDataStruct(dataStruct, field, value)
+			}
+		} else {
+			valuesArray = []string{}
+		}
+	}
+}
+
 // Build data within struct
-func buildStruct(s any, field string, value any) any {
+func setValueOnDataStruct(s any, field string, value any) any {
 
 	sReflect := reflect.ValueOf(s)
 
@@ -46,31 +91,14 @@ func buildStruct(s any, field string, value any) any {
 		objectField := sReflect.Type().Field(i)
 		objectValue := sReflect.Field(i)
 
-		if (objectField.Tag.Get("yaml") == field) || (strings.ToLower(objectField.Name) == strings.TrimSpace(field)) {
+		if (objectField.Tag.Get("yaml") == field) || (strings.ToLower(objectField.Name) == field) {
 			objectValue.Set(reflect.ValueOf(convert(objectField.Type, value)))
 		}
 
 		if objectValue.Kind() == reflect.Struct {
-			buildStruct(objectValue.Addr().Interface(), field, value)
+			setValueOnDataStruct(objectValue.Addr().Interface(), field, value)
 		}
 	}
 
 	return s
-}
-
-// Convert data to a kind specific
-func convert(convertTo reflect.Type, value any) any {
-
-	result := value
-
-	switch convertTo.Kind() {
-	case reflect.Int:
-		result, _ = strconv.Atoi(result.(string))
-	case reflect.Bool:
-		result, _ = strconv.ParseBool(result.(string))
-	default:
-		result = result.(string)
-	}
-
-	return result
 }

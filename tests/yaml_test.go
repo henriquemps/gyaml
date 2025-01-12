@@ -77,5 +77,5 @@ func TestLoadFileYaml(t *testing.T) {
 		t.Error(err)
 	}
 
-	fmt.Println(contentYaml.Features.Caching)
+	fmt.Println(contentYaml)
 }

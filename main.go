@@ -1,5 +1,0 @@
-package yaml
-
-func main() {
-
-}
