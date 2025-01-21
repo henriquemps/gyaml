@@ -1,7 +1,6 @@
 package tests
 
 import (
-	"fmt"
 	"testing"
 	"yaml"
 )
@@ -10,10 +9,10 @@ type Config struct {
 	Version     string    `yaml:"version"`
 	Environment string    `yaml:"environment"`
 	App         AppConfig `yaml:"app"`
-	Database    Database  `yaml:"database"`
-	Logging     Logging   `yaml:"logging"`
-	Features    Features  `yaml:"features"`
-	Metadata    Metadata  `yaml:"metadata"`
+	//Database    Database  `yaml:"database"`
+	//Logging     Logging   `yaml:"logging"`
+	//Features    Features  `yaml:"features"`
+	//Metadata    Metadata  `yaml:"metadata"`
 }
 
 type AppConfig struct {
@@ -77,5 +76,5 @@ func TestLoadFileYaml(t *testing.T) {
 		t.Error(err)
 	}
 
-	fmt.Println(contentYaml)
+	//fmt.Println(contentYaml)
 }
