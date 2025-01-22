@@ -9,10 +9,9 @@ type Config struct {
 	Version     string    `yaml:"version"`
 	Environment string    `yaml:"environment"`
 	App         AppConfig `yaml:"app"`
-	//Database    Database  `yaml:"database"`
-	//Logging     Logging   `yaml:"logging"`
-	//Features    Features  `yaml:"features"`
-	//Metadata    Metadata  `yaml:"metadata"`
+	Database    Database  `yaml:"database"`
+	Logging     Logging   `yaml:"logging"`
+	Features    Features  `yaml:"features"`
 }
 
 type AppConfig struct {
@@ -23,12 +22,13 @@ type AppConfig struct {
 }
 
 type Database struct {
-	Host     string `yaml:"host"`
-	Port     int    `yaml:"port"`
-	Username string `yaml:"username"`
-	Password string `yaml:"password"`
-	Schema   string `yaml:"schema"`
-	Retry    Retry  `yaml:"retry"`
+	Host     string   `yaml:"host"`
+	Port     int      `yaml:"port"`
+	Username string   `yaml:"username"`
+	Password string   `yaml:"password"`
+	Schema   string   `yaml:"schema"`
+	Campo    []string `yaml:"campo"`
+	Retry    Retry    `yaml:"retry"`
 }
 
 type Retry struct {
@@ -48,9 +48,10 @@ type LogRotation struct {
 }
 
 type Features struct {
-	Authentication bool    `yaml:"authentication"`
-	Caching        Caching `yaml:"caching"`
-	Analytics      bool    `yaml:"analytics"`
+	Authentication bool     `yaml:"authentication"`
+	Caching        Caching  `yaml:"caching"`
+	Analytics      bool     `yaml:"analytics"`
+	Metadata       Metadata `yaml:"metadata"`
 }
 
 type Caching struct {

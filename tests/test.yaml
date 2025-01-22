@@ -1,59 +1,56 @@
 config:
-#  version: 1.0.0
-#  environment: production
+  version: 1.0.0
+  environment: production
   app:
     name: SampleApp
-#    description: This is a sample application configuration
-#    port: 8080
-#    debug: false
-#  database:
-#    host: db.example.com
-#    port: 5432
-#    campo:
-#      - A
-#      - B
-#      - C
-#    username: db_user
-#    password: db_pass
-#    schema: public
-#    retry:
-#      attempts: 5
-#      delay: 2000
+    description: This is a sample application configuration
+    port: 8080
+    debug: true
+  database:
+    host: db.example.com
+    port: 5432
+    campo:
+      - A
+      - B
+      - C
+    username: db_user
+    password: db_pass
+    schema: public
+    retry:
+      attempts: 5
+      delay: 2000
+  logging:
+    level: info
+    file: /var/log/sampleapp.log
+    rotation:
+      max_size: 10MB
+      max_files: 5
+  features:
+    authentication: true
+    caching:
+      enabled: true
+      type: redis
+      host: cache.example.com
+      port: 6379
+    analytics: false
+    metadata:
+      created_by: admin
+      created_at: 2025-01-11
+      tags:
+        - app
+        - config
+        - yaml
 
+dados:
+  rg: 000
+  doc: 000
+  outros:
+    A: 123
+    B: 123
+    C:
+      D: 333
+      E: 444
 
-
-
-
-#dados:
-#  rg: 000
-#  doc: 000
-#  outros:
-#    A: 123
-#    B: 123
-#    C:
-#      D: 333
-#      E: 444
-#  logging:
-#    level: info
-#    file: /var/log/sampleapp.log
-#    rotation:
-#      max_size: 10MB
-#      max_files: 5
-#  features:
-#    authentication: true
-#    caching:
-#      enabled: true
-#      type: redis
-#      host: cache.example.com
-#      port: 6379
-#    analytics: false
-#  metadata:
-#    created_by: admin
-#    created_at: 2025-01-11
-#    tags:
-#      - app
-#      - config
-#      - yaml
 #apiVersion: apps/v1
 #kind: Deployment
 #metadata:

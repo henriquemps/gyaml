@@ -32,13 +32,16 @@ func Read(dataStruct any, path string) error {
 
 			if isItemArray(currentText) {
 
-				// Recover data of the next line
-				nextText, _, _, _ := extractDataLine(lines[i+1]["value"].(string))
+				listValues = append(listValues, extractDataItemArray(currentText))
 
-				listValues = append(listValues, strings.TrimSpace(strings.Replace(currentText, "-", "", -1)))
+				if i+1 <= len(lines)-1 {
 
-				if isItemArray(nextText) {
-					continue
+					// Recover data of the next line
+					nextText, _, _, _ := extractDataLine(lines[i+1]["value"].(string))
+
+					if isItemArray(nextText) {
+						continue
+					}
 				}
 			}
 
@@ -73,12 +76,7 @@ func Read(dataStruct any, path string) error {
 	}
 
 	for key, value := range keys {
-
-		fields := strings.Split(key, ".")
-
-		for _, field := range fields {
-			setValueOnDataStruct(dataStruct, field, value)
-		}
+		setValueOnDataStruct(dataStruct, key, value, 0)
 	}
 
 	fmt.Println(dataStruct)
@@ -98,8 +96,14 @@ func extractDataLine(line string) (string, string, string, bool) {
 	isField := strings.HasSuffix(lineText, ":")
 	field, value, _ := strings.Cut(lineText, ":")
 	field = strings.TrimSpace(field)
+	value = strings.TrimSpace(value)
 
 	return lineText, field, value, isField
+}
+
+// extractDataItemArray extract item value as array
+func extractDataItemArray(value string) string {
+	return strings.TrimSpace(strings.Replace(value, "-", "", -1))
 }
 
 // isItemArray check if the value is an item in an array
@@ -154,49 +158,26 @@ func getLinesFile(scanner *bufio.Scanner) []map[string]any {
 	return lines
 }
 
-func setValueOnDataStruct(s any, field string, value any) {
+func setValueOnDataStruct(s any, key string, value any, indexField int) {
 
-	sReflect := reflect.ValueOf(s)
+	fields := strings.Split(key, ".")
+	fields = fields[1:]
+	isLastField := indexField == len(fields)-1
 
-	if sReflect.Kind() == reflect.Ptr {
-		sReflect = sReflect.Elem()
-	}
+	sReflect := reflect.ValueOf(s).Elem()
 
 	for i := 0; i < sReflect.NumField(); i++ {
 		objectField := sReflect.Type().Field(i)
 		objectValue := sReflect.Field(i)
 
-		if objectValue.Kind() == reflect.Struct {
-			setValueOnDataStruct(objectValue.Addr().Interface(), field, value)
-		}
+		field := fields[indexField]
 
-		if (objectField.Tag.Get("yaml") == field) || (strings.ToLower(objectField.Name) == field) {
+		if !isLastField && ((objectField.Tag.Get("yaml") == field) || (strings.ToLower(objectField.Name) == field)) {
+			indexField++
+			setValueOnDataStruct(objectValue.Addr().Interface(), key, value, indexField)
+		} else if (isLastField && objectField.Tag.Get("yaml") == field) || (strings.ToLower(objectField.Name) == field) {
 			objectValue.Set(reflect.ValueOf(convert(objectField.Type, value)))
+			break
 		}
 	}
 }
-
-// Build data within struct
-//func setValueOnDataStruct(s any, field string, value any) any {
-//
-//	sReflect := reflect.ValueOf(s)
-//
-//	if sReflect.Kind() == reflect.Ptr {
-//		sReflect = sReflect.Elem()
-//	}
-//
-//	for i := 0; i < sReflect.NumField(); i++ {
-//		objectField := sReflect.Type().Field(i)
-//		objectValue := sReflect.Field(i)
-//
-//		if (objectField.Tag.Get("yaml") == field) || (strings.ToLower(objectField.Name) == field) {
-//			objectValue.Set(reflect.ValueOf(convert(objectField.Type, value)))
-//		}
-//
-//		if objectValue.Kind() == reflect.Struct {
-//			setValueOnDataStruct(objectValue.Addr().Interface(), field, value)
-//		}
-//	}
-//
-//	return s
-//}
