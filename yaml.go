@@ -11,7 +11,7 @@ import (
 )
 
 // Read load file .yaml and build struct
-func Read(dataStruct any, path string) error {
+func Read(dt any, path string) error {
 
 	scanner, _ := getContentFile(path)
 	lines := getLinesFile(scanner)
@@ -75,11 +75,14 @@ func Read(dataStruct any, path string) error {
 		}
 	}
 
+	rootKeys := extractRootKeys(dt, keys)
+	structName := strings.ToLower(reflect.TypeOf(dt).Elem().Name())
+
 	for key, value := range keys {
-		setValueOnDataStruct(dataStruct, key, value, 0)
+		setValueOnDataStruct(dt, key, value, 0, contains(rootKeys, structName))
 	}
 
-	fmt.Println(dataStruct)
+	fmt.Println(dt)
 
 	return nil
 }
@@ -89,13 +92,38 @@ func prepend(list []string, item string) []string {
 	return append([]string{item}, list...)
 }
 
+func extractRootKeys(s any, keys map[string]any) []string {
+	rootKeys := make([]string, 0)
+
+	for key, _ := range keys {
+		fields := strings.Split(key, ".")
+
+		if contains(rootKeys, fields[0]) {
+			continue
+		}
+
+		rootKeys = append(rootKeys, fields[0])
+	}
+
+	return rootKeys
+}
+
+func contains(slice []string, value string) bool {
+	for _, v := range slice {
+		if v == value {
+			return true
+		}
+	}
+	return false
+}
+
 // extractDataLine extract data as field and values within then
 func extractDataLine(line string) (string, string, string, bool) {
 
 	lineText := line
 	isField := strings.HasSuffix(lineText, ":")
 	field, value, _ := strings.Cut(lineText, ":")
-	field = strings.TrimSpace(field)
+	field = strings.ToLower(strings.TrimSpace(field))
 	value = strings.TrimSpace(value)
 
 	return lineText, field, value, isField
@@ -158,23 +186,28 @@ func getLinesFile(scanner *bufio.Scanner) []map[string]any {
 	return lines
 }
 
-func setValueOnDataStruct(s any, key string, value any, indexField int) {
+func setValueOnDataStruct(s any, key string, value any, indexField int, removeFirstKey bool) {
+
+	structReflect := reflect.ValueOf(s).Elem()
 
 	fields := strings.Split(key, ".")
-	fields = fields[1:]
+
+	if removeFirstKey {
+		removeFirstKey = true
+		fields = fields[1:]
+	}
+
 	isLastField := indexField == len(fields)-1
 
-	sReflect := reflect.ValueOf(s).Elem()
-
-	for i := 0; i < sReflect.NumField(); i++ {
-		objectField := sReflect.Type().Field(i)
-		objectValue := sReflect.Field(i)
+	for i := 0; i < structReflect.NumField(); i++ {
+		objectField := structReflect.Type().Field(i)
+		objectValue := structReflect.Field(i)
 
 		field := fields[indexField]
 
 		if !isLastField && ((objectField.Tag.Get("yaml") == field) || (strings.ToLower(objectField.Name) == field)) {
 			indexField++
-			setValueOnDataStruct(objectValue.Addr().Interface(), key, value, indexField)
+			setValueOnDataStruct(objectValue.Addr().Interface(), key, value, indexField, removeFirstKey)
 		} else if (isLastField && objectField.Tag.Get("yaml") == field) || (strings.ToLower(objectField.Name) == field) {
 			objectValue.Set(reflect.ValueOf(convert(objectField.Type, value)))
 			break

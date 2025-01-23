@@ -41,15 +41,15 @@ config:
         - config
         - yaml
 
-dados:
-  rg: 000
-  doc: 000
-  outros:
-    A: 123
-    B: 123
-    C:
-      D: 333
-      E: 444
+#dados:
+#  rg: 000
+#  doc: 000
+#  outros:
+#    A: 123
+#    B: 123
+#    C:
+#      D: 333
+#      E: 444
 
 #apiVersion: apps/v1
 #kind: Deployment

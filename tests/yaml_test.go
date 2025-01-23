@@ -5,6 +5,28 @@ import (
 	"yaml"
 )
 
+type Root struct {
+	Config Config `yaml:"config"`
+	Dados  Dados  `yaml:"dados"`
+}
+
+type Dados struct {
+	RG     string          `yaml:"rg"`
+	Doc    string          `yaml:"doc"`
+	Outros OutrosEstrutura `yaml:"outros"`
+}
+
+type OutrosEstrutura struct {
+	A int          `yaml:"A"`
+	B int          `yaml:"B"`
+	C SubEstrutura `yaml:"C"`
+}
+
+type SubEstrutura struct {
+	D int `yaml:"D"`
+	E int `yaml:"E"`
+}
+
 type Config struct {
 	Version     string    `yaml:"version"`
 	Environment string    `yaml:"environment"`
