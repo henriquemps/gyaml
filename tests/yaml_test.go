@@ -91,7 +91,7 @@ type Metadata struct {
 
 func TestLoadFileYaml(t *testing.T) {
 
-	contentYaml := Config{}
+	contentYaml := Dados{}
 
 	err := yaml.Read(&contentYaml, "./test.yaml")
 

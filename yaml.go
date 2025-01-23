@@ -75,7 +75,7 @@ func Read(dt any, path string) error {
 		}
 	}
 
-	rootKeys := extractRootKeys(dt, keys)
+	rootKeys := extractRootKeys(keys)
 	structName := strings.ToLower(reflect.TypeOf(dt).Elem().Name())
 
 	for key, value := range keys {
@@ -92,7 +92,7 @@ func prepend(list []string, item string) []string {
 	return append([]string{item}, list...)
 }
 
-func extractRootKeys(s any, keys map[string]any) []string {
+func extractRootKeys(keys map[string]any) []string {
 	rootKeys := make([]string, 0)
 
 	for key, _ := range keys {
