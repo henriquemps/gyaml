@@ -10,14 +10,58 @@ import (
 	"strings"
 )
 
-// Read load file .yaml and build struct
-func Read(dt any, path string) error {
+type Yaml struct {
+	scanner *bufio.Scanner
+	lines   []map[string]any
+	path    string
+	content string
+}
 
-	scanner, _ := getContentFile(path)
-	lines := getLinesFile(scanner)
+var instance *Yaml
+
+func newYaml() *Yaml {
+	if instance == nil {
+		instance = &Yaml{}
+	}
+
+	return instance
+}
+
+func (y *Yaml) init(path string, content string) {
+
+	instance.path = path
+	instance.content = content
+
+	if y.path != "" {
+		instance.scanner = getContentFile(path)
+		instance.lines = getLinesFile(instance.scanner)
+	} else {
+		instance.scanner = bufio.NewScanner(strings.NewReader(content))
+		instance.lines = getLinesFile(instance.scanner)
+	}
+}
+
+// FUnmarshal allow Unmarshal per file
+func FUnmarshal(dt any, path string) {
+	i := newYaml()
+
+	i.init(path, "")
+
+	Unmarshal(dt, "")
+}
+
+// Unmarshal Read load file .yaml and build struct
+func Unmarshal(dt any, v string) {
+
+	if v != "" {
+		i := newYaml()
+		i.init("", v)
+	}
 
 	keys := make(map[string]any)
 	listValues := make([]string, 0)
+
+	lines := instance.lines
 
 	for i := 0; i < len(lines); i++ {
 
@@ -79,12 +123,8 @@ func Read(dt any, path string) error {
 	structName := strings.ToLower(reflect.TypeOf(dt).Elem().Name())
 
 	for key, value := range keys {
-		setValueOnDataStruct(dt, key, value, 0, contains(rootKeys, structName))
+		setValueOnDataStruct(dt, key, value, 0, containsRootkey(rootKeys, structName))
 	}
-
-	fmt.Println(dt)
-
-	return nil
 }
 
 // prepend add item to the beginning of the list
@@ -92,13 +132,24 @@ func prepend(list []string, item string) []string {
 	return append([]string{item}, list...)
 }
 
+// containsRootkey check if a key exist in list
+func containsRootkey(list []string, key string) bool {
+	for _, v := range list {
+		if v == key {
+			return true
+		}
+	}
+	return false
+}
+
+// extractRootKeys extract all root keys
 func extractRootKeys(keys map[string]any) []string {
 	rootKeys := make([]string, 0)
 
 	for key, _ := range keys {
 		fields := strings.Split(key, ".")
 
-		if contains(rootKeys, fields[0]) {
+		if containsRootkey(rootKeys, fields[0]) {
 			continue
 		}
 
@@ -106,15 +157,6 @@ func extractRootKeys(keys map[string]any) []string {
 	}
 
 	return rootKeys
-}
-
-func contains(slice []string, value string) bool {
-	for _, v := range slice {
-		if v == value {
-			return true
-		}
-	}
-	return false
 }
 
 // extractDataLine extract data as field and values within then
@@ -142,25 +184,29 @@ func isItemArray(value string) bool {
 }
 
 // getContentFile open and get file content
-func getContentFile(path string) (*bufio.Scanner, error) {
+func getContentFile(path string) *bufio.Scanner {
 
 	file, err := os.Open(path)
 
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
 
-	defer file.Close()
+	defer func(file *os.File) {
+		if err := file.Close(); err != nil {
+			panic(err)
+		}
+	}(file)
 
 	var buffer bytes.Buffer
 
-	scanner := bufio.NewScanner(file)
+	newScanner := bufio.NewScanner(file)
 
-	for scanner.Scan() {
-		buffer.WriteString(scanner.Text() + "\n")
+	for newScanner.Scan() {
+		buffer.WriteString(newScanner.Text() + "\n")
 	}
 
-	return bufio.NewScanner(&buffer), nil
+	return bufio.NewScanner(&buffer)
 }
 
 // getLinesFile organize each line of the text in a structure
@@ -186,6 +232,7 @@ func getLinesFile(scanner *bufio.Scanner) []map[string]any {
 	return lines
 }
 
+// setValueOnDataStruct set values within struct
 func setValueOnDataStruct(s any, key string, value any, indexField int, removeFirstKey bool) {
 
 	structReflect := reflect.ValueOf(s).Elem()

@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"fmt"
 	"testing"
 	"yaml"
 )
@@ -89,15 +90,26 @@ type Metadata struct {
 	Tags      []string `yaml:"tags"`
 }
 
-func TestLoadFileYaml(t *testing.T) {
+func TestFUnmarshal(t *testing.T) {
 
 	contentYaml := Dados{}
 
-	err := yaml.Read(&contentYaml, "./test.yaml")
+	yaml.FUnmarshal(&contentYaml, "./test.yaml")
+}
 
-	if err != nil {
-		t.Error(err)
-	}
+func TestUnmarshal(t *testing.T) {
 
-	//fmt.Println(contentYaml)
+	contentYaml := Dados{}
+
+	yaml.Unmarshal(&contentYaml, `dados:
+  rg: 000
+  doc: 000
+  outros:
+    A: 123
+    B: 123
+    C:
+      D: 333
+      E: 444`)
+
+	fmt.Println(contentYaml)
 }
