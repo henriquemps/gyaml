@@ -1,11 +1,9 @@
-package yaml
+package gyaml
 
 import (
 	"reflect"
 	"strconv"
 )
-
-func detectDataStruct() {}
 
 // Convert data to a kind specific
 func convert(convertTo reflect.Type, value any) any {

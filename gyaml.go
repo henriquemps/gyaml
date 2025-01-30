@@ -1,4 +1,27 @@
-package yaml
+// Package gyaml provides functionality to parse and unmarshal YAML content into Go structs.
+// It supports both loading YAML from a file or directly from a string input.
+//
+// The package offers two main functions for unmarshaling data:
+//   - FUnmarshal: Unmarshals data from a YAML file specified by its path.
+//   - Unmarshal: Reads and loads YAML content from a string and maps it to a Go struct.
+//
+// The package also includes various utility functions for handling YAML structures, such as
+// extracting field values, handling arrays, and managing nested structures.
+//
+// Example usage:
+//
+//	import "path/to/gyaml"
+//
+//	var data MyStruct
+//	err := gyaml.FUnmarshal(&data, "path/to/file.yaml")
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//
+// Author: Henrique Matos
+// Github: https://github.com/henriquemps/gyaml
+// License: MIT
+package gyaml
 
 import (
 	"bufio"
@@ -59,7 +82,7 @@ func Unmarshal(dt any, v string) {
 	}
 
 	keys := make(map[string]any)
-	listValues := make([]string, 0)
+	var listValues []string
 
 	lines := instance.lines
 
@@ -71,51 +94,56 @@ func Unmarshal(dt any, v string) {
 		currentSpace := lines[i]["spaces"].(int)
 		currentText, currentField, currentValue, currentValueIsOnlyField := extractDataLine(lines[i]["value"].(string))
 
-		if !currentValueIsOnlyField {
-			spaceLastField := lines[i-1]["spaces"].(int)
+		if currentValueIsOnlyField {
+			continue
+		}
 
-			if isItemArray(currentText) {
+		spaceLastField := lines[i-1]["spaces"].(int)
 
-				listValues = append(listValues, extractDataItemArray(currentText))
+		if isItemArray(currentText) {
 
-				if i+1 <= len(lines)-1 {
+			listValues = append(listValues, extractDataItemArray(currentText))
 
-					// Recover data of the next line
-					nextText, _, _, _ := extractDataLine(lines[i+1]["value"].(string))
+			// test if can we access next line
+			if i+1 <= len(lines)-1 {
 
-					if isItemArray(nextText) {
-						continue
-					}
+				// Recover data of the next line
+				nextText, _, _, _ := extractDataLine(lines[i+1]["value"].(string))
+
+				if isItemArray(nextText) {
+					continue
 				}
 			}
+		}
 
-			for a := i - 1; a >= 0; a-- {
+		for a := i - 1; a >= 0; a-- {
 
-				// Recover data of the before line
-				spacePreviousField := lines[a]["spaces"].(int)
-				_, fieldPrevious, _, valuePreviousIsOnlyField := extractDataLine(lines[a]["value"].(string))
+			// Recover data of the before line
+			spacePreviousField := lines[a]["spaces"].(int)
+			_, fieldPrevious, _, valuePreviousIsOnlyField := extractDataLine(lines[a]["value"].(string))
 
-				// if is first iteration then we can't check the spaces
-				// in conditional
-				if i-1 == a {
-					if valuePreviousIsOnlyField && spacePreviousField < currentSpace {
-						spaceLastField = spacePreviousField
-						keyPath = prepend(keyPath, fieldPrevious)
-					}
-				} else {
-					if valuePreviousIsOnlyField && spaceLastField > spacePreviousField && spacePreviousField < currentSpace {
-						spaceLastField = spacePreviousField
-						keyPath = prepend(keyPath, fieldPrevious)
-					}
+			// if is first iteration then we can't check the spaces
+			// in conditional
+			if i-1 == a {
+				if valuePreviousIsOnlyField && spacePreviousField < currentSpace {
+					spaceLastField = spacePreviousField
+					keyPath = prepend(keyPath, fieldPrevious)
 				}
-			}
-
-			if len(listValues) > 0 {
-				keys[strings.Join(keyPath, ".")] = listValues
-				listValues = make([]string, 0)
 			} else {
-				keys[fmt.Sprintf("%s.%s", strings.Join(keyPath, "."), currentField)] = currentValue
+				if valuePreviousIsOnlyField && spaceLastField > spacePreviousField && spacePreviousField < currentSpace {
+					spaceLastField = spacePreviousField
+					keyPath = prepend(keyPath, fieldPrevious)
+				}
 			}
+		}
+
+		fullKey := strings.Join(keyPath, ".")
+
+		if len(listValues) > 0 {
+			keys[fullKey] = listValues
+			listValues = nil
+		} else {
+			keys[fmt.Sprintf("%s.%s", fullKey, currentField)] = currentValue
 		}
 	}
 
@@ -232,7 +260,12 @@ func getLinesFile(scanner *bufio.Scanner) []map[string]any {
 	return lines
 }
 
-// setValueOnDataStruct set values within struct
+// setValueOnDataStruct sets values within a struct.
+// It navigates through the key hierarchy to find the corresponding field.
+// When the field is found, it converts the value to the type allowed by the struct field and sets the value.
+//
+// In cases where there are multiple root structures in the YAML file, we need to determine
+// whether we should remove the first "key" mapped in the hierarchy or not.
 func setValueOnDataStruct(s any, key string, value any, indexField int, removeFirstKey bool) {
 
 	structReflect := reflect.ValueOf(s).Elem()
