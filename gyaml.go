@@ -88,27 +88,28 @@ func Unmarshal(dt any, v string) {
 
 	for i := 0; i < len(lines); i++ {
 
-		keyPath := make([]string, 0)
+		//keyPath := make([]string, 0)
 
 		// Recover data of the current line
-		currentSpace := lines[i]["spaces"].(int)
-		currentText, currentField, currentValue, currentValueIsOnlyField := extractDataLine(lines[i]["value"].(string))
+		currentText, currentField, currentValue, currentValueIsOnlyField, currentSpace := extractDataLine(lines, i)
 
 		if currentValueIsOnlyField {
 			continue
 		}
 
-		spaceLastField := lines[i-1]["spaces"].(int)
-
+		// Section to handle fields with items in the format:
+		// campo:
+		//   - A
+		//   - B
+		//   - C
 		if isItemArray(currentText) {
-
 			listValues = append(listValues, extractDataItemArray(currentText))
 
 			// test if can we access next line
 			if i+1 <= len(lines)-1 {
 
 				// Recover data of the next line
-				nextText, _, _, _ := extractDataLine(lines[i+1]["value"].(string))
+				nextText, _, _, _, _ := extractDataLine(lines, i+1)
 
 				if isItemArray(nextText) {
 					continue
@@ -116,28 +117,7 @@ func Unmarshal(dt any, v string) {
 			}
 		}
 
-		for a := i - 1; a >= 0; a-- {
-
-			// Recover data of the before line
-			spacePreviousField := lines[a]["spaces"].(int)
-			_, fieldPrevious, _, valuePreviousIsOnlyField := extractDataLine(lines[a]["value"].(string))
-
-			// if is first iteration then we can't check the spaces
-			// in conditional
-			if i-1 == a {
-				if valuePreviousIsOnlyField && spacePreviousField < currentSpace {
-					spaceLastField = spacePreviousField
-					keyPath = prepend(keyPath, fieldPrevious)
-				}
-			} else {
-				if valuePreviousIsOnlyField && spaceLastField > spacePreviousField && spacePreviousField < currentSpace {
-					spaceLastField = spacePreviousField
-					keyPath = prepend(keyPath, fieldPrevious)
-				}
-			}
-		}
-
-		fullKey := strings.Join(keyPath, ".")
+		fullKey := buildKeyHierarchy(lines, currentSpace, i)
 
 		if len(listValues) > 0 {
 			keys[fullKey] = listValues
@@ -153,6 +133,55 @@ func Unmarshal(dt any, v string) {
 	for key, value := range keys {
 		setValueOnDataStruct(dt, key, value, 0, containsRootkey(rootKeys, structName))
 	}
+}
+
+// buildKeyHierarchy responsible for building key hierarchy and values
+//
+// Example:
+//
+// config:
+//
+//	version: 1.0.0
+//	app:
+//	  name: SampleApp
+//
+// Hierarchy result for "name: SampleApp" is: config.app.name = SampleAPP
+func buildKeyHierarchy(lines []map[string]any, currentSpace int, currentIndex int) string {
+
+	keyPath := make([]string, 0)
+	//keys := make(map[string]any)
+	spaceLastField := lines[currentIndex-1]["spaces"].(int)
+
+	for a := currentIndex - 1; a >= 0; a-- {
+
+		// Recover data of the before line
+		_, fieldPrevious, _, valuePreviousIsOnlyField, spacePreviousField := extractDataLine(lines, a)
+
+		// if is first iteration then we can't check the spaces
+		// in conditional
+		if currentIndex-1 == a {
+			if valuePreviousIsOnlyField && spacePreviousField < currentSpace {
+				spaceLastField = spacePreviousField
+				keyPath = prepend(keyPath, fieldPrevious)
+			}
+		} else {
+			if valuePreviousIsOnlyField && spaceLastField > spacePreviousField && spacePreviousField < currentSpace {
+				spaceLastField = spacePreviousField
+				keyPath = prepend(keyPath, fieldPrevious)
+			}
+		}
+	}
+
+	fullKey := strings.Join(keyPath, ".")
+
+	//if len(listValues) > 0 {
+	//	keys[fullKey] = listValues
+	//	listValues = nil
+	//} else {
+	//	fullKey = fmt.Sprintf("%s.%s", fullKey, currentField)
+	//}
+
+	return fullKey //, currentValue, listValues
 }
 
 // prepend add item to the beginning of the list
@@ -188,15 +217,16 @@ func extractRootKeys(keys map[string]any) []string {
 }
 
 // extractDataLine extract data as field and values within then
-func extractDataLine(line string) (string, string, string, bool) {
+func extractDataLine(lines []map[string]any, index int) (string, string, string, bool, int) {
 
-	lineText := line
+	lineText := lines[index]["value"].(string)
+	space := lines[index]["spaces"].(int)
 	isField := strings.HasSuffix(lineText, ":")
 	field, value, _ := strings.Cut(lineText, ":")
 	field = strings.ToLower(strings.TrimSpace(field))
 	value = strings.TrimSpace(value)
 
-	return lineText, field, value, isField
+	return lineText, field, value, isField, space
 }
 
 // extractDataItemArray extract item value as array
