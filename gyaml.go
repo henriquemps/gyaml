@@ -174,14 +174,7 @@ func buildKeyHierarchy(lines []map[string]any, currentSpace int, currentIndex in
 
 	fullKey := strings.Join(keyPath, ".")
 
-	//if len(listValues) > 0 {
-	//	keys[fullKey] = listValues
-	//	listValues = nil
-	//} else {
-	//	fullKey = fmt.Sprintf("%s.%s", fullKey, currentField)
-	//}
-
-	return fullKey //, currentValue, listValues
+	return fullKey
 }
 
 // prepend add item to the beginning of the list
