@@ -2,6 +2,7 @@ package gyaml
 
 import (
 	"os"
+	"reflect"
 	"testing"
 )
 
@@ -14,6 +15,8 @@ type Config struct {
 	Environment string    `yaml:"environment"`
 	MultiA      string    `yaml:"multi"`
 	MultiB      string    `yaml:"multi"`
+	MultiC      string    `yaml:"multi"`
+	List        []string  `yaml:"list"`
 	App         AppConfig `yaml:"app"`
 	Database    Database  `yaml:"database"`
 	Logging     Logging   `yaml:"logging"`
@@ -28,13 +31,12 @@ type AppConfig struct {
 }
 
 type Database struct {
-	Host     string   `yaml:"host"`
-	Port     int      `yaml:"port"`
-	Username string   `yaml:"username"`
-	Password string   `yaml:"password"`
-	Schema   string   `yaml:"schema"`
-	Campo    []string `yaml:"campo"`
-	Retry    Retry    `yaml:"retry"`
+	Host     string `yaml:"host"`
+	Port     int    `yaml:"port"`
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
+	Schema   string `yaml:"schema"`
+	Retry    Retry  `yaml:"retry"`
 }
 
 type Retry struct {
@@ -234,6 +236,18 @@ config:
 
 	if contentYaml.Config.Features.Caching.Host != "cache.example.com" {
 		t.Errorf("UnmarshalWithFileContent() error to unmarshal string")
+	}
+}
+
+func TestFieldStructureAsArrayOnFUnmarshal(t *testing.T) {
+	contentYaml := Config{}
+
+	FUnmarshal(&contentYaml, "./mocks/test.yaml")
+
+	value := reflect.ValueOf(contentYaml.List)
+
+	if value.Kind() != reflect.Slice {
+		t.Errorf("TestFieldStructureAsArrayOnFUnmarshal() field 'List' not is a slice")
 	}
 }
 

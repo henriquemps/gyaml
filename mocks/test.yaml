@@ -21,6 +21,15 @@ config:
     Texto 2
     Texto 3
     Texto 4
+  multiC: |-
+    Texto 1
+    Texto 2
+    Texto 3
+    Texto 4
+  list:
+    - A
+    - B
+    - C
   app:
     name: SampleApp
     description: This is a sample application configuration
@@ -29,10 +38,6 @@ config:
   database:
     host: db.example.com
     port: 5432
-    campo:
-      - A
-      - B
-      - C
     username: db_user
     password: db_pass
     schema: public

@@ -85,6 +85,16 @@ func Unmarshal(structure any, rawContent string) {
 	build()
 }
 
+// build is the core logic for parsing and unmarshaling the YAML.
+// It orchestrates the process of reading the lines from the YAML file or string,
+// extracts data from each line, and organizes the information into a hierarchical
+// key-value structure. The function also handles specific cases like arrays and
+// multiline fields, updating the destination structure (passed as a parameter)
+// with the values extracted from the YAML.
+//
+// The function is responsible for interpreting the structure of the YAML and
+// ensuring that values are correctly mapped to the appropriate fields in the
+// Go structure, respecting hierarchy and expected data types.
 func build() {
 
 	var listValues []string
@@ -176,6 +186,12 @@ func processItemArray(currentText string, index int, listValues *[]string) bool 
 //	  Texto 2
 //	  Texto 3
 //	  Texto 4
+//
+//	multiB: |-
+//	  Texto 1
+//	  Texto 2
+//	  Texto 3
+//	  Texto 4
 func processMultiline(currentText string, index int, str *strings.Builder, enableMultiline *bool) bool {
 
 	ok := false
@@ -199,6 +215,8 @@ func processMultiline(currentText string, index int, str *strings.Builder, enabl
 	return ok
 }
 
+// onDataNextLine checks if it can access the next line of the content
+// and extracts the data from the next line
 func onDataNextLine(index int, f func(string, string, string, bool, bool, int)) {
 
 	if index+1 <= len(instance.lines)-1 {
@@ -302,7 +320,7 @@ func isItemArray(value string) bool {
 
 // isMultiLine check if the value is multi line
 func isMultiLine(value string) bool {
-	compile, _ := regexp.Compile(".*:\\s{0,}(>|\\|)")
+	compile, _ := regexp.Compile(".*:\\s*(\\|-|>|\\|)")
 
 	return compile.MatchString(strings.TrimSpace(value))
 }
