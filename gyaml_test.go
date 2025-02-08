@@ -12,6 +12,8 @@ type Root struct {
 type Config struct {
 	Version     string    `yaml:"version"`
 	Environment string    `yaml:"environment"`
+	MultiA      string    `yaml:"multi"`
+	MultiB      string    `yaml:"multi"`
 	App         AppConfig `yaml:"app"`
 	Database    Database  `yaml:"database"`
 	Logging     Logging   `yaml:"logging"`
@@ -70,6 +72,8 @@ type Metadata struct {
 	CreatedAt string   `yaml:"created_at"`
 	Tags      []string `yaml:"tags"`
 }
+
+// Feature tests
 
 func TestFUnmarshal(t *testing.T) {
 
@@ -232,6 +236,8 @@ config:
 		t.Errorf("UnmarshalWithFileContent() error to unmarshal string")
 	}
 }
+
+// Benchmark tests
 
 func BenchmarkFUnmarshal(b *testing.B) {
 

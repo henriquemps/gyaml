@@ -31,13 +31,15 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 )
 
 type Yaml struct {
-	scanner *bufio.Scanner
-	lines   []map[string]any
-	path    string
-	content string
+	scanner   *bufio.Scanner
+	lines     []map[string]any
+	path      string
+	content   string
+	structure any
 }
 
 var instance *Yaml
@@ -50,10 +52,11 @@ func newYaml() *Yaml {
 	return instance
 }
 
-func (y *Yaml) init(path string, content string) {
+func (y *Yaml) init(structure any, path string, content string) {
 
 	instance.path = path
 	instance.content = content
+	instance.structure = structure
 
 	if y.path != "" {
 		instance.scanner = getContentFile(path)
@@ -64,74 +67,142 @@ func (y *Yaml) init(path string, content string) {
 	}
 }
 
-// FUnmarshal allow Unmarshal per file
-func FUnmarshal(dt any, path string) {
+// FUnmarshal allow unmarshal per file
+func FUnmarshal(structure any, path string) {
+
 	i := newYaml()
+	i.init(structure, path, "")
 
-	i.init(path, "")
-
-	Unmarshal(dt, "")
+	build()
 }
 
-// Unmarshal Read load file .yaml and build struct
-func Unmarshal(dt any, v string) {
+// Unmarshal allow unmarshal per raw string
+func Unmarshal(structure any, rawContent string) {
 
-	if v != "" {
-		i := newYaml()
-		i.init("", v)
-	}
+	i := newYaml()
+	i.init(structure, "", rawContent)
+
+	build()
+}
+
+func build() {
+
+	var listValues []string
+	var strBuilder strings.Builder
 
 	keys := make(map[string]any)
-	var listValues []string
+	enableMultiline := false
 
-	lines := instance.lines
-
-	for i := 0; i < len(lines); i++ {
-
-		//keyPath := make([]string, 0)
+	for i := 0; i < len(instance.lines); i++ {
 
 		// Recover data of the current line
-		currentText, currentField, currentValue, currentValueIsOnlyField, currentSpace := extractDataLine(lines, i)
+		currentText, currentField, currentValue, currentValueIsOnlyField, _, currentSpace := extractDataLine(instance.lines, i)
 
 		if currentValueIsOnlyField {
 			continue
 		}
 
-		// Section to handle fields with items in the format:
-		// campo:
-		//   - A
-		//   - B
-		//   - C
-		if isItemArray(currentText) {
-			listValues = append(listValues, extractDataItemArray(currentText))
-
-			// test if can we access next line
-			if i+1 <= len(lines)-1 {
-
-				// Recover data of the next line
-				nextText, _, _, _, _ := extractDataLine(lines, i+1)
-
-				if isItemArray(nextText) {
-					continue
-				}
-			}
+		if ok := processItemArray(currentText, i, &listValues); ok {
+			continue
 		}
 
-		fullKey := buildKeyHierarchy(lines, currentSpace, i)
+		if ok := processMultiline(currentText, i, &strBuilder, &enableMultiline); ok {
+			continue
+		}
 
-		if len(listValues) > 0 {
+		fullKey := buildKeyHierarchy(instance.lines, currentSpace, i)
+
+		valueIsList := len(listValues) > 0
+		valueIsTextMultiline := len(strBuilder.String()) > 0
+
+		if valueIsList {
 			keys[fullKey] = listValues
 			listValues = nil
-		} else {
+		}
+
+		if valueIsTextMultiline {
+			keys[fullKey] = strBuilder.String()
+			strBuilder.Reset()
+			enableMultiline = false
+		}
+
+		if !valueIsList && !valueIsTextMultiline {
 			keys[fmt.Sprintf("%s.%s", fullKey, currentField)] = currentValue
 		}
 	}
 
 	rootKeys := extractRootKeys(keys)
-	structName := strings.ToLower(reflect.TypeOf(dt).Elem().Name())
+	structName := strings.ToLower(reflect.TypeOf(instance.structure).Elem().Name())
 
 	for key, value := range keys {
-		setValueOnDataStruct(dt, key, value, 0, containsRootkey(rootKeys, structName))
+		setValueOnDataStruct(instance.structure, key, value, 0, containsRootkey(rootKeys, structName))
+	}
+}
+
+// processItemArray manager fields with items in the format:
+//
+// campo:
+//   - A
+//   - B
+//   - C
+func processItemArray(currentText string, index int, listValues *[]string) bool {
+
+	ok := false
+
+	if isItemArray(currentText) {
+		*listValues = append(*listValues, strings.TrimSpace(strings.Replace(currentText, "-", "", -1)))
+
+		onDataNextLine(index, func(nextLineText, nextField, nextValue string, nextIsCommonField, nextIsField bool, nextSpace int) {
+
+			if isItemArray(nextLineText) {
+				ok = true
+			}
+		})
+	}
+
+	return ok
+}
+
+// processMultiline manager fields multilines with operator ">" or "|", example:
+//
+//	 multiA: >
+//	  Texto 1
+//	  Texto 2
+//	  Texto 3
+//	  Texto 4
+//
+//	multiB: |
+//	  Texto 1
+//	  Texto 2
+//	  Texto 3
+//	  Texto 4
+func processMultiline(currentText string, index int, str *strings.Builder, enableMultiline *bool) bool {
+
+	ok := false
+
+	if isMultiLine(currentText) {
+		*enableMultiline = true
+		return true
+	}
+
+	if *enableMultiline {
+		str.WriteString(currentText + "\n")
+
+		onDataNextLine(index, func(nextLineText, nextField, nextValue string, nextIsCommonField, nextIsField bool, nextSpace int) {
+
+			if !nextIsField {
+				ok = true
+			}
+		})
+	}
+
+	return ok
+}
+
+func onDataNextLine(index int, f func(string, string, string, bool, bool, int)) {
+
+	if index+1 <= len(instance.lines)-1 {
+		f(extractDataLine(instance.lines, index+1))
 	}
 }
 
@@ -149,23 +220,22 @@ func Unmarshal(dt any, v string) {
 func buildKeyHierarchy(lines []map[string]any, currentSpace int, currentIndex int) string {
 
 	keyPath := make([]string, 0)
-	//keys := make(map[string]any)
 	spaceLastField := lines[currentIndex-1]["spaces"].(int)
 
 	for a := currentIndex - 1; a >= 0; a-- {
 
 		// Recover data of the before line
-		_, fieldPrevious, _, valuePreviousIsOnlyField, spacePreviousField := extractDataLine(lines, a)
+		_, fieldPrevious, _, _, isFieldPrevious, spacePreviousField := extractDataLine(lines, a)
 
 		// if is first iteration then we can't check the spaces
 		// in conditional
 		if currentIndex-1 == a {
-			if valuePreviousIsOnlyField && spacePreviousField < currentSpace {
+			if isFieldPrevious && spacePreviousField < currentSpace {
 				spaceLastField = spacePreviousField
 				keyPath = prepend(keyPath, fieldPrevious)
 			}
 		} else {
-			if valuePreviousIsOnlyField && spaceLastField > spacePreviousField && spacePreviousField < currentSpace {
+			if isFieldPrevious && spaceLastField > spacePreviousField && spacePreviousField < currentSpace {
 				spaceLastField = spacePreviousField
 				keyPath = prepend(keyPath, fieldPrevious)
 			}
@@ -210,26 +280,36 @@ func extractRootKeys(keys map[string]any) []string {
 }
 
 // extractDataLine extract data as field and values within then
-func extractDataLine(lines []map[string]any, index int) (string, string, string, bool, int) {
+func extractDataLine(lines []map[string]any, index int) (string, string, string, bool, bool, int) {
 
 	lineText := lines[index]["value"].(string)
 	space := lines[index]["spaces"].(int)
-	isField := strings.HasSuffix(lineText, ":")
 	field, value, _ := strings.Cut(lineText, ":")
+	isCommonField := strings.HasSuffix(lineText, ":")
+	isField := isAnyField(lineText)
 	field = strings.ToLower(strings.TrimSpace(field))
 	value = strings.TrimSpace(value)
 
-	return lineText, field, value, isField, space
-}
-
-// extractDataItemArray extract item value as array
-func extractDataItemArray(value string) string {
-	return strings.TrimSpace(strings.Replace(value, "-", "", -1))
+	return lineText, field, value, isCommonField, isField, space
 }
 
 // isItemArray check if the value is an item in an array
 func isItemArray(value string) bool {
 	compile, _ := regexp.Compile("-\\s*[a-zA-Z_\\-]+")
+
+	return compile.MatchString(strings.TrimSpace(value))
+}
+
+// isMultiLine check if the value is multi line
+func isMultiLine(value string) bool {
+	compile, _ := regexp.Compile(".*:\\s{0,}(>|\\|)")
+
+	return compile.MatchString(strings.TrimSpace(value))
+}
+
+// isMultiLine check if the value is multi line
+func isAnyField(value string) bool {
+	compile, _ := regexp.Compile(".*:\\s?(>|(\\|\\-?)?)")
 
 	return compile.MatchString(strings.TrimSpace(value))
 }
@@ -275,8 +355,10 @@ func getLinesFile(scanner *bufio.Scanner) []map[string]any {
 
 		// Ignore commented line
 		if []rune(value)[0] != '#' {
-			totalSpaces := len(value) - len(strings.TrimLeft(value, " "))
-			lines = append(lines, map[string]any{"spaces": totalSpaces, "value": scanner.Text()})
+			value = strings.Split(value, "#")[0]
+
+			totalSpaces := utf8.RuneCountInString(value) - utf8.RuneCountInString(strings.TrimLeft(value, " "))
+			lines = append(lines, map[string]any{"spaces": totalSpaces, "value": value})
 		}
 	}
 
