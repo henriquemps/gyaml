@@ -38,10 +38,7 @@ type Config struct {
 
 func main() {
     var config Config
-    err := gyaml.FUnmarshal(&config, "config.yaml")
-    if err != nil {
-        log.Fatal(err)
-    }
+    gyaml.FUnmarshal(&config, "config.yaml")
     fmt.Println("App Name:", config.App.Name)
 }
 ```
@@ -72,10 +69,7 @@ func main() {
     ""`
 
     var config Config
-    err := gyaml.Unmarshal(&config, yamlContent)
-    if err != nil {
-        log.Fatal(err)
-    }
+    gyaml.Unmarshal(&config, yamlContent)
     fmt.Println("App Name:", config.App.Name)
 }
 ```
