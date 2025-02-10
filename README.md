@@ -43,7 +43,7 @@ func main() {
 }
 ```
 
-### Example 2: Reading YAML from a string
+### Example 2: Reading YAML from a raw string
 
 ```go
 package main
@@ -62,11 +62,11 @@ type Config struct {
 }
 
 func main() {
-    yamlContent := ""`
+    yamlContent := `
     version: 1.0.0
     app:
       name: SampleApp
-    ""`
+    `
 
     var config Config
     gyaml.Unmarshal(&config, yamlContent)
